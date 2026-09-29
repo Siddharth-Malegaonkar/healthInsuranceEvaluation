@@ -7,6 +7,7 @@ inference time (preprocess_single).
 """
 
 import os
+import math
 import pandas as pd
 
 # Absolute path to the dataset, derived relative to this file
@@ -16,6 +17,43 @@ DATASET_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dataset
 VALID_GENDERS = {"male", "female"}
 VALID_REGIONS = {"northeast", "northwest", "southeast", "southwest"}
 VALID_DISCOUNT = {"yes", "no"}
+
+
+def _validate_prediction_input(input_dict: dict) -> None:
+    """Validate raw inference input before feature encoding.
+
+    FastAPI validates HTTP requests, but this keeps direct callers of
+    ``predict()`` and ``preprocess_single()`` equally safe and predictable.
+    """
+    required_fields = {
+        "age", "gender", "bmi", "children", "discount_eligibility", "region"
+    }
+    missing_fields = required_fields - input_dict.keys()
+    if missing_fields:
+        raise ValueError(f"Missing required fields: {', '.join(sorted(missing_fields))}")
+
+    for name, valid_values in (
+        ("gender", VALID_GENDERS),
+        ("discount_eligibility", VALID_DISCOUNT),
+        ("region", VALID_REGIONS),
+    ):
+        value = input_dict[name]
+        if not isinstance(value, str) or value.strip().lower() not in valid_values:
+            raise ValueError(f"Invalid {name}: {value!r}")
+
+    try:
+        age = int(input_dict["age"])
+        bmi = float(input_dict["bmi"])
+        children = int(input_dict["children"])
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Age, BMI, and children must be numeric.") from exc
+
+    if not 18 <= age <= 100:
+        raise ValueError("Age must be between 18 and 100.")
+    if not math.isfinite(bmi) or not 10.0 <= bmi <= 60.0:
+        raise ValueError("BMI must be a finite value between 10.0 and 60.0.")
+    if not 0 <= children <= 10:
+        raise ValueError("Children must be between 0 and 10.")
 
 
 def load_and_preprocess() -> tuple:
@@ -86,6 +124,8 @@ def preprocess_single(input_dict: dict, feature_columns: list) -> pd.DataFrame:
     Returns:
         pd.DataFrame: Single-row DataFrame with columns ordered to match training.
     """
+    _validate_prediction_input(input_dict)
+
     gender = 1 if input_dict["gender"].strip().lower() == "male" else 0
     discount = 1 if input_dict["discount_eligibility"].strip().lower() == "yes" else 0
     region = input_dict["region"].strip().lower()
