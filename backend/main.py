@@ -26,7 +26,7 @@ from pydantic import BaseModel, Field
 from typing import Literal
 
 from predict import predict
-
+#hello 
 # -------------------------------------------------------------------
 # App Configuration
 # -------------------------------------------------------------------
@@ -48,7 +48,7 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
-
+print("FastAPI backend initialized. Ready to accept requests.")
 
 # -------------------------------------------------------------------
 # Pydantic Schemas
